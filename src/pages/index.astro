@@ -1,0 +1,28 @@
+---
+import ChatInterface from '../components/ChatInterface.astro';
+import CameraScanner from '../components/CameraScanner.astro';
+import PartViewer3D from '../components/PartViewer3D.astro';
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Brick Finder General</title>
+		<style>
+			body { font-family: sans-serif; background: #111; color: white; display: grid; grid-template-columns: 1fr 400px; height: 100vh; margin: 0; }
+			main { display: flex; flex-direction: column; border-right: 1px solid #333; }
+			.viewer-area { flex: 1; position: relative; background: #000; }
+		</style>
+	</head>
+	<body>
+		<main>
+			<div class="viewer-area">
+				<PartViewer3D />
+				<CameraScanner />
+			</div>
+		</main>
+		<aside>
+			<ChatInterface />
+		</aside>
+	</body>
+</html>
