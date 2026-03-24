@@ -1,28 +1,47 @@
----
-/* 
-  Astro Server-side logic (Frontmatter)
-  This runs during build/request. 
-*/
----
+import * as THREE from 'three';
+import { LDrawLoader } from 'three/examples/jsm/loaders/LDrawLoader.js';
 
-<!-- The HTML container for the 3D Canvas -->
-<div id="lego-container" style="width: 100%; height: 500px;"></div>
+let scene, camera, renderer, currentModel;
 
-<script>
-  /* 
-    Astro Client-side logic 
-    Everything inside this <script> tag runs in the browser.
-  */
-  import * as THREE from 'three';
-  import { LDrawLoader } from 'three/examples/jsm/loaders/LDrawLoader.js';
-  import { LDrawUtils } from 'three/examples/jsm/utils/LDrawUtils.js';
+const container = document.getElementById('lego-container');
 
-  // ... (Three.js setup code like scene, camera, renderer goes here) ...
+function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xeeeeee);
 
-  const loader = new LDrawLoader();
-  
-  // We'll update this path in Question B
-  loader.setPartsLibraryPath('https://cdn.jsdelivr.net/gh/gkjohnson/ldraw-parts-library@master/complete/ldraw/');
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 10000);
+    camera.position.set(100, 100, 100);
 
-  // Logic to load parts...
-</script>
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    const loader = new LDrawLoader();
+    
+    // Using jsDelivr to proxy the GitHub repo correctly
+    loader.setPartsLibraryPath('https://cdn.jsdelivr.net/gh/gkjohnson/ldraw-parts-library@master/complete/ldraw/');
+
+    // Listener for UI events
+    window.addEventListener('request-part-render', (e) => {
+        const partId = e.detail.partId; // e.g., "3001"
+        
+        loader.load(`parts/${partId}.dat`, (group) => {
+            if (currentModel) scene.remove(currentModel);
+            
+            // Re-orient the part so it's not upside down (LDraw uses a different Y-axis)
+            group.rotation.x = Math.PI; 
+            currentModel = group;
+            scene.add(currentModel);
+        });
+    });
+
+    animate();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    if (currentModel) currentModel.rotation.y += 0.01;
+    renderer.render(scene, camera);
+}
+
+init();
