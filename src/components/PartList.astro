@@ -2,42 +2,62 @@
 import { db, Inventory, eq } from 'astro:db';
 
 const { setNum } = Astro.props;
-const parts = await db.select().from(Inventory).where(eq(Inventory.set_num, setNum));
+let parts = [];
+
+try {
+  parts = await db.select().from(Inventory).where(eq(Inventory.set_num, setNum));
+} catch (e) {
+  console.error("DB Fetch failed. Did you run astro db push?", e);
+}
 ---
 
 <div class="part-browser">
-  <ul id="inventory-list">
-    {parts.map((part) => (
-      <li class="part-item" data-id={part.part_num}>
-        <img src={part.image_url} width="50" />
-        <span>{part.name} ({part.quantity_found}/{part.quantity_needed})</span>
-        <button class="view-3d-btn" data-part={part.part_num}>View 3D</button>
-        <button class="found-btn" data-db-id={part.id}>Found It!</button>
-      </li>
-    ))}
-  </ul>
+  {parts.length === 0 ? (
+    <div class="empty-state">
+      <p>No parts found in Database for set {setNum}.</p>
+      <p style="color: #888; font-size: 0.8rem;">Ready to run the Seed Script!</p>
+    </div>
+  ) : (
+    <ul id="inventory-list">
+      {parts.map((part) => (
+        <li class="part-item">
+          <img src={part.image_url} width="50" alt={part.name} />
+          <div class="info">
+            <span>{part.name}</span>
+            <small>{part.quantity_found}/{part.quantity_needed}</small>
+          </div>
+          <button class="view-3d-btn" data-part={part.part_num}>3D</button>
+          <button class="found-btn" data-db-id={part.id}>Found</button>
+        </li>
+      ))}
+    </ul>
+  )}
 </div>
 
+<style>
+  .part-item { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    background: #2a2a2a; 
+    padding: 8px; 
+    margin-bottom: 5px; 
+    border-radius: 4px;
+  }
+  .info { flex: 1; display: flex; flex-direction: column; }
+  .empty-state { padding: 20px; text-align: center; border: 1px dashed #444; }
+  button { cursor: pointer; padding: 5px; }
+</style>
+
 <script>
-  // Emit event to Three.js component
+  // ... keep your existing script tags exactly as they were ...
+  // JUST MAKE SURE the event name matches the viewer:
   document.querySelectorAll('.view-3d-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const partId = btn.getAttribute('data-part');
       window.dispatchEvent(new CustomEvent('request-part-render', { 
         detail: { partId } 
       }));
-    });
-  });
-
-  // Handle "Found It!" logic (Post to an Astro API route)
-  document.querySelectorAll('.found-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-db-id');
-      await fetch('/api/increment-part', { 
-        method: 'POST', 
-        body: JSON.stringify({ id }) 
-      });
-      location.reload(); // Simple refresh to show updated count
     });
   });
 </script>
