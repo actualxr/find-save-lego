@@ -1,7 +1,7 @@
 import { db, Inventory } from 'astro:db';
 
 // CONFIGURATION: Change this to the set you want to track
-const SET_NUM = '42089-1'; // Power Boat (UCS)
+const SET_NUM = '75192-1'; // Power Boat (UCS)
 const API_KEY = process.env.REBRICKABLE_API_KEY;
 
 export default async function seed() {
