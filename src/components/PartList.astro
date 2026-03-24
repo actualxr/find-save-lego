@@ -1,0 +1,43 @@
+---
+import { db, Inventory, eq } from 'astro:db';
+
+const { setNum } = Astro.props;
+const parts = await db.select().from(Inventory).where(eq(Inventory.set_num, setNum));
+---
+
+<div class="part-browser">
+  <ul id="inventory-list">
+    {parts.map((part) => (
+      <li class="part-item" data-id={part.part_num}>
+        <img src={part.image_url} width="50" />
+        <span>{part.name} ({part.quantity_found}/{part.quantity_needed})</span>
+        <button class="view-3d-btn" data-part={part.part_num}>View 3D</button>
+        <button class="found-btn" data-db-id={part.id}>Found It!</button>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<script>
+  // Emit event to Three.js component
+  document.querySelectorAll('.view-3d-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const partId = btn.getAttribute('data-part');
+      window.dispatchEvent(new CustomEvent('request-part-render', { 
+        detail: { partId } 
+      }));
+    });
+  });
+
+  // Handle "Found It!" logic (Post to an Astro API route)
+  document.querySelectorAll('.found-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-db-id');
+      await fetch('/api/increment-part', { 
+        method: 'POST', 
+        body: JSON.stringify({ id }) 
+      });
+      location.reload(); // Simple refresh to show updated count
+    });
+  });
+</script>
