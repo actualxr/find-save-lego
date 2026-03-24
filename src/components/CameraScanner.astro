@@ -1,7 +1,119 @@
----
-// Placeholder for Camera
----
-<div style="padding: 20px; background: #222; border: 1px dashed #555; text-align: center;">
-  <h3>Camera Scanner</h3>
-  <p>Camera feed will go here.</p>
+<div class="camera-container">
+  <!-- This is the live video element -->
+  <video id="webcam" autoplay playsinline muted></video>
+  
+  <!-- This is hidden; we use it to "snap" the photo for the AI -->
+  <canvas id="photo-canvas" style="display:none;"></canvas>
+  
+  <div class="controls">
+    <button id="snap-btn">Identify Piece 📸</button>
+  </div>
+  
+  <div id="camera-status" class="status-msg">Initializing camera...</div>
 </div>
+
+<script>
+  const video = document.getElementById('webcam');
+  const canvas = document.getElementById('photo-canvas');
+  const snapBtn = document.getElementById('snap-btn');
+  const statusMsg = document.getElementById('camera-status');
+
+  // 1. Start the Webcam
+  async function startWebcam() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: "environment", // Use the back camera on phones
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }, 
+        audio: false 
+      });
+      video.srcObject = stream;
+      statusMsg.style.display = 'none'; // Hide status when working
+    } catch (err) {
+      console.error("Camera Error:", err);
+      statusMsg.innerText = "❌ Camera blocked. Please allow permissions.";
+      statusMsg.style.background = "rgba(255,0,0,0.7)";
+    }
+  }
+
+  // 2. Capture and Send
+  snapBtn.addEventListener('click', () => {
+    const context = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Draw the current video frame to the hidden canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Convert canvas to a Base64 image string
+    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+    // Tell the ChatInterface that an image was captured
+    document.dispatchEvent(new CustomEvent('imageCaptured', { 
+      detail: { image: imageData } 
+    }));
+    
+    // UI Feedback
+    snapBtn.innerText = "Analyzing...";
+    snapBtn.disabled = true;
+  });
+
+  // Reset the button when the AI finishes talking
+  document.addEventListener('aiResponded', () => {
+    snapBtn.innerText = "Identify Piece 📸";
+    snapBtn.disabled = false;
+  });
+
+  // Start the camera immediately
+  startWebcam();
+</script>
+
+<style>
+  .camera-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* This makes it fill the screen like a phone app */
+  }
+  .controls {
+    position: absolute;
+    bottom: 30px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    z-index: 10;
+  }
+  button {
+    padding: 18px 40px;
+    background: #e31b23;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    transition: transform 0.2s;
+  }
+  button:active { transform: scale(0.95); }
+  button:disabled { background: #555; cursor: wait; }
+
+  .status-msg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.8);
+    padding: 10px 20px;
+    border-radius: 5px;
+    color: white;
+  }
+</style>
