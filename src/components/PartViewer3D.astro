@@ -1,55 +1,59 @@
-<div id="lego-viewport"></div>
+<div id="three-container"></div>
+
+<style>
+  #three-container { width: 100%; height: 100%; min-height: 500px; }
+</style>
 
 <script>
   import * as THREE from 'three';
+  import { LDrawLoader } from 'three/examples/jsm/loaders/LDrawLoader.js';
 
-  const container = document.getElementById('lego-viewport');
-  
-  // Setup Scene
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  let scene, camera, renderer, currentModel;
 
-  renderer.setSize(container.clientWidth, container.clientHeight);
-  container.appendChild(renderer.domElement);
+  function init() {
+    const container = document.getElementById('three-container');
+    
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
 
-  // Create a spinning red block (placeholder for LEGO)
-  const geometry = new THREE.BoxGeometry(1.5, 1, 1);
-  const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-  const brick = new THREE.Mesh(geometry, material);
-  scene.add(brick);
+    camera = new THREE.PerspectiveCamera(45, container.offsetWidth / container.offsetHeight, 1, 10000);
+    camera.position.set(150, 150, 150);
 
-  // Add Lights
-  const light = new THREE.DirectionalLight(0xffffff, 1.5);
-  light.position.set(5, 5, 5);
-  scene.add(light);
-  scene.add(new THREE.AmbientLight(0x404040));
+    const light = new THREE.DirectionalLight(0xffffff, 3);
+    light.position.set(1, 1, 1);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-  camera.position.z = 4;
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.offsetWidth, container.offsetHeight);
+    container.appendChild(renderer.domElement);
 
-  // Animation Loop
+    const loader = new LDrawLoader();
+    // CDN for LEGO Parts
+    loader.setPartsLibraryPath('https://cdn.jsdelivr.net/gh/gkjohnson/ldraw-parts-library@master/complete/ldraw/');
+
+    // Listen for the "View 3D" button click from PartList.astro
+    window.addEventListener('render-lego-part', (e) => {
+      const partId = e.detail.partId;
+      
+      loader.load(`parts/${partId}.dat`, (group) => {
+        if (currentModel) scene.remove(currentModel);
+        
+        // Re-orient LDraw parts for Three.js
+        group.rotation.x = Math.PI; 
+        currentModel = group;
+        scene.add(currentModel);
+      });
+    });
+
+    animate();
+  }
+
   function animate() {
     requestAnimationFrame(animate);
-    brick.rotation.x += 0.01;
-    brick.rotation.y += 0.01;
+    if (currentModel) currentModel.rotation.y += 0.01;
     renderer.render(scene, camera);
   }
 
-  // Handle screen resize
-  window.addEventListener('resize', () => {
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
-  });
-
-  animate();
+  init();
 </script>
-
-<style>
-  #lego-viewport {
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(#2c2c2c, #000);
-    cursor: grab;
-  }
-</style>
