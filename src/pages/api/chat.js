@@ -1,54 +1,68 @@
 export const POST = async ({ request }) => {
   try {
     const API_KEY = process.env.GEMINI_API_KEY;
-    if (!API_KEY) throw new Error("GEMINI_API_KEY is missing.");
+    
+    if (!API_KEY || API_KEY === "") {
+      return new Response(JSON.stringify({ text: "⚠️ System Error: GEMINI_API_KEY is missing from Netlify environment variables." }));
+    }
 
-    const { message, imageBase64 } = await request.json();
+    const body = await request.json();
+    const { message, imageBase64 } = body;
 
-    // This URL is the most compatible version for Gemini 1.5 Flash
+    // We use the 'v1beta' endpoint which is the most compatible with Flash
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
-    let contents = [];
-    
-    // If an image is provided, we format it exactly how the raw API wants it
+    let parts = [{ text: message }];
+
     if (imageBase64) {
-      contents.push({
-        parts: [
-          { text: message },
-          {
-            inline_data: {
-              mime_type: "image/jpeg",
-              data: imageBase64.split(",")[1]
-            }
-          }
-        ]
-      });
-    } else {
-      contents.push({
-        parts: [{ text: message }]
+      parts.push({
+        inline_data: {
+          mime_type: "image/jpeg",
+          data: imageBase64.split(",")[1]
+        }
       });
     }
 
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents })
+      body: JSON.stringify({ contents: [{ parts }] })
     });
 
     const data = await response.json();
 
+    // 1. Check for Google API Errors
     if (data.error) {
-      throw new Error(`Google says: ${data.error.message}`);
+      return new Response(JSON.stringify({ 
+        text: `⚠️ Google API Error (${data.error.code}): ${data.error.message}` 
+      }));
     }
 
-    const aiText = data.candidates[0].content.parts[0].text;
+    // 2. Check for Safety Blocks (common with LEGO/images)
+    if (!data.candidates || data.candidates.length === 0) {
+      return new Response(JSON.stringify({ 
+        text: "⚠️ The General is speechless. Google blocked the response (likely a safety filter)." 
+      }));
+    }
+
+    // 3. Extract the text carefully
+    const aiText = data.candidates[0]?.content?.parts?.[0]?.text;
+
+    if (!aiText) {
+      return new Response(JSON.stringify({ 
+        text: "⚠️ The General sent an empty response. Raw Data: " + JSON.stringify(data).substring(0, 100) 
+      }));
+    }
 
     return new Response(JSON.stringify({
       text: aiText,
-      history: [] // Simplified for now
+      history: [] 
     }), { status: 200 });
 
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    // 4. Catch any code crashes
+    return new Response(JSON.stringify({ 
+      text: "❌ Internal App Error: " + e.message 
+    }), { status: 500 });
   }
 };
