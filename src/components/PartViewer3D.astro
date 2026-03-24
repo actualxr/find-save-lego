@@ -1,59 +1,132 @@
-<div id="three-container"></div>
+<div id="three-container">
+    <div id="loading-overlay">Loading 3D Model...</div>
+</div>
 
 <style>
-  #three-container { width: 100%; height: 100%; min-height: 500px; }
+  #three-container {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    position: relative;
+    background: radial-gradient(#222, #000);
+  }
+
+  #loading-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-family: sans-serif;
+    font-size: 12px;
+    display: none; /* Hidden by default */
+  }
 </style>
 
 <script>
   import * as THREE from 'three';
   import { LDrawLoader } from 'three/examples/jsm/loaders/LDrawLoader.js';
+  import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-  let scene, camera, renderer, currentModel;
+  let scene, camera, renderer, controls, currentModel;
+  const container = document.getElementById('three-container');
+  const loaderOverlay = document.getElementById('loading-overlay');
 
   function init() {
-    const container = document.getElementById('three-container');
-    
+    // 1. Scene & Camera
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111);
-
+    
     camera = new THREE.PerspectiveCamera(45, container.offsetWidth / container.offsetHeight, 1, 10000);
     camera.position.set(150, 150, 150);
 
-    const light = new THREE.DirectionalLight(0xffffff, 3);
-    light.position.set(1, 1, 1);
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    // 2. Renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(container.offsetWidth, container.offsetHeight);
     container.appendChild(renderer.domElement);
 
+    // 3. Controls (Allows you to drag/zoom with mouse)
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // 4. Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2);
+    sunLight.position.set(100, 200, 100);
+    scene.add(sunLight);
+
+    // 5. LDraw Loader Setup
     const loader = new LDrawLoader();
-    // CDN for LEGO Parts
+    
+    // Using the jsDelivr CDN to pull the official LDraw library
     loader.setPartsLibraryPath('https://cdn.jsdelivr.net/gh/gkjohnson/ldraw-parts-library@master/complete/ldraw/');
 
-    // Listen for the "View 3D" button click from PartList.astro
-    window.addEventListener('render-lego-part', (e) => {
+    // 6. Event Listener: Listen for "View 3D" button clicks
+    window.addEventListener('request-part-render', (e) => {
       const partId = e.detail.partId;
-      
-      loader.load(`parts/${partId}.dat`, (group) => {
-        if (currentModel) scene.remove(currentModel);
-        
-        // Re-orient LDraw parts for Three.js
-        group.rotation.x = Math.PI; 
-        currentModel = group;
-        scene.add(currentModel);
-      });
+      loadLegoPart(partId, loader);
     });
+
+    // Handle Window Resize
+    window.addEventListener('resize', onWindowResize);
 
     animate();
   }
 
+  async function loadLegoPart(partId, loader) {
+    loaderOverlay.style.display = 'block';
+
+    // LDraw filenames usually end in .dat
+    const url = `parts/${partId}.dat`;
+
+    loader.load(url, (group) => {
+      // Remove the old model if it exists
+      if (currentModel) scene.remove(currentModel);
+
+      // LDraw parts are inverted on the Y axis, so we flip them
+      group.rotation.x = Math.PI;
+
+      // Auto-Center the part so it's not floating off-screen
+      const box = new THREE.Box3().setFromObject(group);
+      const center = box.getCenter(new THREE.Vector3());
+      group.position.sub(center);
+
+      currentModel = group;
+      scene.add(currentModel);
+      
+      loaderOverlay.style.display = 'none';
+      
+      // Reset camera to see the new part
+      camera.position.set(100, 100, 100);
+      controls.reset();
+    }, 
+    (xhr) => { /* Progress updates could go here */ },
+    (error) => {
+      console.error("Error loading LDraw part:", error);
+      loaderOverlay.innerText = "Error: Part not found";
+    });
+  }
+
+  function onWindowResize() {
+    camera.aspect = container.offsetWidth / container.offsetHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.offsetWidth, container.offsetHeight);
+  }
+
   function animate() {
     requestAnimationFrame(animate);
-    if (currentModel) currentModel.rotation.y += 0.01;
+    controls.update(); // Required for damping
+    if (currentModel) {
+        // Optional: slow auto-rotation
+        // currentModel.rotation.y += 0.005;
+    }
     renderer.render(scene, camera);
   }
 
+  // Initialize the 3D Engine
   init();
 </script>
