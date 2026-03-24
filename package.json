@@ -9,10 +9,11 @@
     "preview": "astro preview",
     "astro": "astro"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
-    "@astrojs/vercel": "^7.0.0",
-    "@google/generative-ai": "^0.3.0",
-    "astro": "^4.5.0",
-    "three": "^0.162.0"
+    "@astrojs/netlify": "^6.0.0",
+    "astro": "^4.16.18"
   }
 }
