@@ -13,6 +13,7 @@
     "node": "20.x"
   },
   "dependencies": {
+    "@astrojs/db": "^0.20.1",
     "@astrojs/netlify": "^5.5.0",
     "astro": "^4.15.0",
     "three": "^0.162.0"
