@@ -1,60 +1,34 @@
 ---
-import { db, Inventory, eq } from 'astro:db';
+// We have REMOVED the astro:db import entirely to bypass the error
+const { setNum = "75192-1" } = Astro.props;
 
-const { setNum } = Astro.props;
-let parts = [];
-
-try {
-  parts = await db.select().from(Inventory).where(eq(Inventory.set_num, setNum));
-} catch (e) {
-  console.error("DB Fetch failed. Did you run astro db push?", e);
-}
+// Mock data so you can see the UI immediately
+const parts = [
+  { id: 1, part_num: '3001', name: 'Brick 2x4', quantity_found: 0, quantity_needed: 5, image_url: 'https://rebrickable.com/media/parts/elements/300126.jpg' },
+  { id: 2, part_num: '3002', name: 'Brick 2x3', quantity_found: 0, quantity_needed: 3, image_url: 'https://rebrickable.com/media/parts/elements/300226.jpg' }
+];
 ---
 
 <div class="part-browser">
-  {parts.length === 0 ? (
-    <div class="empty-state">
-      <p>No parts found in Database for set {setNum}.</p>
-      <p style="color: #888; font-size: 0.8rem;">Ready to run the Seed Script!</p>
-    </div>
-  ) : (
-    <ul id="inventory-list">
-      {parts.map((part) => (
-        <li class="part-item">
-          <img src={part.image_url} width="50" alt={part.name} />
-          <div class="info">
-            <span>{part.name}</span>
-            <small>{part.quantity_found}/{part.quantity_needed}</small>
-          </div>
-          <button class="view-3d-btn" data-part={part.part_num}>3D</button>
-          <button class="found-btn" data-db-id={part.id}>Found</button>
-        </li>
-      ))}
-    </ul>
-  )}
+  <ul id="inventory-list" style="list-style: none; padding: 0;">
+    {parts.map((part) => (
+      <li class="part-item" style="display: flex; align-items: center; gap: 10px; background: #2a2a2a; padding: 10px; margin-bottom: 5px; border-radius: 4px;">
+        <img src={part.image_url} width="50" alt={part.name} />
+        <div style="flex: 1;">
+          <div style="font-weight: bold;">{part.name}</div>
+          <small>{part.quantity_found} / {part.quantity_needed}</small>
+        </div>
+        <button class="view-3d-btn" data-part={part.part_num} style="cursor: pointer; padding: 5px 10px;">3D</button>
+      </li>
+    ))}
+  </ul>
 </div>
 
-<style>
-  .part-item { 
-    display: flex; 
-    align-items: center; 
-    gap: 10px; 
-    background: #2a2a2a; 
-    padding: 8px; 
-    margin-bottom: 5px; 
-    border-radius: 4px;
-  }
-  .info { flex: 1; display: flex; flex-direction: column; }
-  .empty-state { padding: 20px; text-align: center; border: 1px dashed #444; }
-  button { cursor: pointer; padding: 5px; }
-</style>
-
 <script>
-  // ... keep your existing script tags exactly as they were ...
-  // JUST MAKE SURE the event name matches the viewer:
   document.querySelectorAll('.view-3d-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const partId = btn.getAttribute('data-part');
+      console.log("Requesting 3D render for:", partId);
       window.dispatchEvent(new CustomEvent('request-part-render', { 
         detail: { partId } 
       }));
