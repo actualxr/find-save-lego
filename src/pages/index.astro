@@ -1,28 +1,53 @@
 ---
 import ChatInterface from '../components/ChatInterface.astro';
-import CameraScanner from '../components/CameraScanner.astro';
+import PartList from '../components/PartList.astro'; // New Component
 import PartViewer3D from '../components/PartViewer3D.astro';
 ---
 
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<title>Brick Finder General</title>
+		<title>Brick Finder: Digital Manual</title>
 		<style>
-			body { font-family: sans-serif; background: #111; color: white; display: grid; grid-template-columns: 1fr 400px; height: 100vh; margin: 0; }
-			main { display: flex; flex-direction: column; border-right: 1px solid #333; }
-			.viewer-area { flex: 1; position: relative; background: #000; }
+			body { 
+				font-family: sans-serif; 
+				background: #111; 
+				color: white; 
+				display: grid; 
+				grid-template-columns: 1fr 400px; /* Left: 3D, Right: UI */
+				height: 100vh; 
+				margin: 0; 
+				overflow: hidden;
+			}
+			main { 
+				display: flex; 
+				flex-direction: column; 
+				background: #000; 
+			}
+			aside { 
+				display: flex; 
+				flex-direction: column; 
+				border-left: 1px solid #333;
+				background: #1a1a1a;
+				overflow-y: auto;
+			}
+			.inventory-section { flex: 1; border-bottom: 1px solid #333; padding: 1rem; }
+			.chat-section { height: 300px; }
 		</style>
 	</head>
 	<body>
 		<main>
-			<div class="viewer-area">
-				<PartViewer3D />
-				<CameraScanner />
-			</div>
+			<!-- The 3D Viewer takes up the whole left side -->
+			<PartViewer3D />
 		</main>
 		<aside>
-			<ChatInterface />
+			<div class="inventory-section">
+				<h2>Set Inventory</h2>
+				<PartList setNum="75192-1" /> <!-- We pass the Set ID here -->
+			</div>
+			<div class="chat-section">
+				<ChatInterface />
+			</div>
 		</aside>
 	</body>
 </html>
