@@ -1,0 +1,28 @@
+---
+/* 
+  Astro Server-side logic (Frontmatter)
+  This runs during build/request. 
+*/
+---
+
+<!-- The HTML container for the 3D Canvas -->
+<div id="lego-container" style="width: 100%; height: 500px;"></div>
+
+<script>
+  /* 
+    Astro Client-side logic 
+    Everything inside this <script> tag runs in the browser.
+  */
+  import * as THREE from 'three';
+  import { LDrawLoader } from 'three/examples/jsm/loaders/LDrawLoader.js';
+  import { LDrawUtils } from 'three/examples/jsm/utils/LDrawUtils.js';
+
+  // ... (Three.js setup code like scene, camera, renderer goes here) ...
+
+  const loader = new LDrawLoader();
+  
+  // We'll update this path in Question B
+  loader.setPartsLibraryPath('https://cdn.jsdelivr.net/gh/gkjohnson/ldraw-parts-library@master/complete/ldraw/');
+
+  // Logic to load parts...
+</script>
