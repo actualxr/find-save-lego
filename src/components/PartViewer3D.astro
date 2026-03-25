@@ -19,7 +19,7 @@
     color: #fff;
     padding: 10px 20px;
     border-radius: 5px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: sans-serif;
     font-size: 14px;
     pointer-events: none;
     border: 1px solid #444;
@@ -35,53 +35,43 @@
   let scene, camera, renderer, controls, currentModel;
   let ldrawLoader;
 
-  // This is the "Universal" Mirror. It pulls directly from the official LDraw parts library.
-  // We use the 'raw' GitHub URL to get the actual file data.
-  const LDRAW_LIBRARY_URL = 'https://raw.githubusercontent.com/gkjohnson/ldraw-parts-library/master/complete/ldraw/';
+  // The Root URL for the LDraw Library
+  const LDRAW_BASE_URL = 'https://raw.githubusercontent.com/gkjohnson/ldraw-parts-library/master/complete/ldraw/';
 
   function init() {
     const container = document.getElementById('three-container');
     if (!container) return;
 
-    // 1. Scene setup
     scene = new THREE.Scene();
 
-    // 2. Camera setup
     camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 10000);
     camera.position.set(400, 400, 400);
 
-    // 3. Renderer setup
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
-    // 4. Controls
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    // 5. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
-    scene.add(ambientLight);
-
+    scene.add(new THREE.AmbientLight(0xffffff, 2));
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
     dirLight.position.set(100, 200, 100);
     scene.add(dirLight);
 
-    // 6. LDraw Loader Configuration
+    // Initialize Loader
     ldrawLoader = new LDrawLoader();
     
-    // This tells the loader where to find the /parts and /p folders
-    ldrawLoader.setPartsLibraryPath(LDRAW_LIBRARY_URL);
+    // IMPORTANT: This tells the loader where to find "dependencies" (primitives like studs)
+    ldrawLoader.setPartsLibraryPath(LDRAW_BASE_URL);
 
-    // 7. Event Listener for clicks from PartList.astro
     window.addEventListener('request-part-render', (e) => {
       const partId = e.detail.partId;
-      updateStatus(`Loading LEGO Part ${partId}...`);
+      updateStatus(`Fetching Part ${partId} from Global Library...`);
       loadLegoPart(partId);
     });
 
-    // 8. Handle Window Resize
     window.addEventListener('resize', () => {
       camera.aspect = container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
@@ -92,30 +82,27 @@
   }
 
   function loadLegoPart(partId) {
-    // Clear previous model if it exists
-    if (currentModel) {
-      scene.remove(currentModel);
-    }
+    if (currentModel) scene.remove(currentModel);
 
-    // Attempt to load the specific brick file
-    // The loader automatically checks LDRAW_LIBRARY_URL/parts/ID.dat
-    ldrawLoader.load(`parts/${partId}.dat`, 
+    // FIX: We must use the FULL ABSOLUTE URL for the main part load
+    // This prevents the browser from looking on your Netlify domain
+    const fullPartUrl = `${LDRAW_BASE_URL}parts/${partId}.dat`;
+
+    ldrawLoader.load(fullPartUrl, 
       (group) => {
         setupModel(group);
       },
       undefined,
       (err) => {
-        console.warn(`Part ${partId} not found. Trying fallback logic...`);
+        console.warn(`Part ${partId} not found at ${fullPartUrl}. Trying fallback...`);
         handleLoadError(partId);
       }
     );
   }
 
   function setupModel(group) {
-    // Re-orient LDraw parts (they are inverted on the Y axis by default)
-    group.rotation.x = Math.PI;
+    group.rotation.x = Math.PI; // Correct LDraw orientation
 
-    // Auto-center the part
     const box = new THREE.Box3().setFromObject(group);
     const center = box.getCenter(new THREE.Vector3());
     group.position.sub(center);
@@ -123,27 +110,28 @@
     currentModel = group;
     scene.add(currentModel);
 
-    // Auto-frame: Adjust camera to fit the size of the brick
+    // Auto-frame based on part size
     const size = box.getSize(new THREE.Vector3()).length();
     camera.position.set(size * 2, size * 2, size * 2);
     camera.lookAt(0, 0, 0);
     controls.reset();
 
-    updateStatus("Rendering Complete");
+    updateStatus("Render Successful");
     setTimeout(() => {
         const status = document.getElementById('loader-status');
         if (status) status.style.display = 'none';
-    }, 1000);
+    }, 1500);
   }
 
   function handleLoadError(partId) {
-    // Fallback: If it's a printed part (e.g., 3001pb01), strip suffixes and try the base brick
+    // Fallback logic for parts with suffixes (like pb01)
     const baseId = partId.split(/[a-z]/i)[0]; 
     
     if (baseId && baseId !== partId) {
-      updateStatus(`Base model fallback: ${baseId}`);
-      ldrawLoader.load(`parts/${baseId}.dat`, setupModel, undefined, () => {
-        updateStatus(`Part ${partId} not available in 3D library.`);
+      updateStatus(`Trying base model: ${baseId}`);
+      const fallbackUrl = `${LDRAW_BASE_URL}parts/${baseId}.dat`;
+      ldrawLoader.load(fallbackUrl, setupModel, undefined, () => {
+        updateStatus(`Part ${partId} is not in the LDraw library.`);
       });
     } else {
       updateStatus(`Error: Part ${partId} not found.`);
@@ -164,6 +152,5 @@
     renderer.render(scene, camera);
   }
 
-  // Kick off the initialization
   init();
 </script>
