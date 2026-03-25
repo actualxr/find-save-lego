@@ -1,36 +1,42 @@
 import { db, Inventory } from 'astro:db';
 
-// CONFIGURATION: Change this to the set you want to track
-const SET_NUM = '75192-1'; // Power Boat (UCS)
+const SET_NUM = '75192-1';
 const API_KEY = process.env.REBRICKABLE_API_KEY;
 
 export default async function seed() {
+  // DIAGNOSTIC: Check the key format
   if (!API_KEY) {
-    console.error("❌ Error: REBRICKABLE_API_KEY is not set in your .env file.");
+    console.error("❌ Error: REBRICKABLE_API_KEY is missing.");
     return;
   }
+  
+  console.log(`Key Check: Length is ${API_KEY.length} characters.`);
+  console.log(`Key starts with: ${API_KEY.substring(0, 5)}...`);
 
   console.log(`fetching inventory for set: ${SET_NUM}...`);
 
   try {
-    // 1. Fetch data from Rebrickable
-    // Note: Rebrickable paginates. For huge sets, we'd need to loop, 
-    // but this gets the first 100 parts to get you started.
     const response = await fetch(
       `https://rebrickable.com/api/v3/lego/sets/${SET_NUM}/parts/?page_size=100`,
-      { headers: { 'Authorization': `key ${API_KEY}` } }
+      { 
+        headers: { 
+          // Rebrickable MUST have the word 'key' before the actual key
+          'Authorization': `key ${API_KEY.trim()}`, 
+          'Accept': 'application/json'
+        } 
+      }
     );
 
     const data = await response.json();
 
     if (!data.results) {
-      console.error("❌ Error: No parts found. Check your Set Number.");
+      console.log("--- REBRICKABLE REJECTED THE KEY ---");
+      console.log(data); 
       return;
     }
 
-    console.log(`Found ${data.results.length} unique parts. Inserting into DB...`);
+    console.log(`✅ Success! Found ${data.results.length} parts. Inserting...`);
 
-    // 2. Map and Insert into Astro DB
     const partsToInsert = data.results.map((item: any) => ({
       set_num: SET_NUM,
       part_num: item.part.part_num,
@@ -42,9 +48,9 @@ export default async function seed() {
     }));
 
     await db.insert(Inventory).values(partsToInsert);
-
     console.log("✅ Database seeded successfully!");
+
   } catch (error) {
-    console.error("❌ Seeding failed:", error);
+    console.error("❌ Script Error:", error);
   }
 }
