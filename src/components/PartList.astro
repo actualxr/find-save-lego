@@ -1,12 +1,19 @@
 ---
-// We have REMOVED the astro:db import entirely to bypass the error
-const { setNum = "75192-1" } = Astro.props;
+import { db, Inventory, eq } from 'astro:db'; // 1. Add the import back
 
-// Mock data so you can see the UI immediately
-const parts = [
-  { id: 1, part_num: '3001', name: 'Brick 2x4', quantity_found: 0, quantity_needed: 5, image_url: 'https://rebrickable.com/media/parts/elements/300126.jpg' },
-  { id: 2, part_num: '3002', name: 'Brick 2x3', quantity_found: 0, quantity_needed: 3, image_url: 'https://rebrickable.com/media/parts/elements/300226.jpg' }
-];
+const { setNum = "75192-1" } = Astro.props;
+let parts = [];
+
+try {
+  // 2. Try to fetch from the DB
+  parts = await db.select().from(Inventory).where(eq(Inventory.set_num, setNum));
+} catch (e) {
+  // 3. Fallback to mock data if the DB is empty or fails during build
+  console.log("DB is empty, using temporary mock data");
+  parts = [
+    { id: 1, part_num: '3001', name: 'Brick 2x4 (Mock)', quantity_found: 0, quantity_needed: 5, image_url: 'https://rebrickable.com/media/parts/elements/300126.jpg' }
+  ];
+}
 ---
 
 <div class="part-browser">
