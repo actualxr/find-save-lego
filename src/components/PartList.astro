@@ -25,6 +25,7 @@ try {
             <small class="part-qty">{part.quantity_found} / {part.quantity_needed}</small>
           </div>
           <button class="view-3d-btn" data-part={part.part_num}>3D</button>
+          <button class="found-btn" data-db-id={part.id}>Found It!</button>
         </li>
       ))
     )}
@@ -68,4 +69,20 @@ try {
       }));
     });
   });
+  document.querySelectorAll('.found-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const id = btn.getAttribute('data-db-id');
+    
+    const response = await fetch('/api/increment-part', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+
+    if (response.ok) {
+      // Refresh the page to show the updated count
+      window.location.reload();
+    }
+  });
+});
 </script>
