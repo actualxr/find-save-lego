@@ -1,95 +1,144 @@
+<div id="three-container">
+    <div id="loading-overlay">Select a part to view 3D...</div>
+</div>
+
+<style>
+  #three-container {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    position: relative;
+    background: radial-gradient(#222, #000);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  #loading-overlay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: sans-serif;
+    border: 1px solid #444;
+    z-index: 10;
+  }
+</style>
+
 <script>
   import * as THREE from 'three';
   import { LDrawLoader } from 'three/examples/jsm/loaders/LDrawLoader.js';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
   let scene, camera, renderer, controls, currentModel;
-  const container = document.getElementById('three-container');
-  const loaderOverlay = document.getElementById('loading-overlay');
+  let loaderInstance;
 
   function init() {
+    const container = document.getElementById('three-container');
+    const loaderOverlay = document.getElementById('loading-overlay');
+
+    // SAFETY CHECK: If the container isn't in the DOM yet, wait 100ms and try again
+    if (!container) {
+      setTimeout(init, 100);
+      return;
+    }
+
+    // 1. Scene Setup
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111);
     
-    camera = new THREE.PerspectiveCamera(45, container.offsetWidth / container.offsetHeight, 1, 10000);
+    // 2. Camera Setup (Now using container.clientWidth safely)
+    const width = container.clientWidth;
+    const height = container.clientHeight || 500;
+    
+    camera = new THREE.PerspectiveCamera(45, width / height, 1, 10000);
     camera.position.set(200, 200, 200);
 
+    // 3. Renderer Setup
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(container.offsetWidth, container.offsetHeight);
+    renderer.setSize(width, height);
     container.appendChild(renderer.domElement);
 
+    // 4. Controls
     controls = new OrbitControls(camera, renderer.domElement);
-    
+    controls.enableDamping = true;
+
+    // 5. Lighting
     scene.add(new THREE.AmbientLight(0xffffff, 2));
     const sun = new THREE.DirectionalLight(0xffffff, 1);
     sun.position.set(10, 10, 10);
     scene.add(sun);
 
-    const loader = new LDrawLoader();
-    // CDN for the library
-    loader.setPartsLibraryPath('https://cdn.jsdelivr.net/gh/gkjohnson/ldraw-parts-library@master/complete/ldraw/');
+    // 6. LDraw Loader Setup
+    loaderInstance = new LDrawLoader();
+    loaderInstance.setPartsLibraryPath('https://cdn.jsdelivr.net/gh/gkjohnson/ldraw-parts-library@master/complete/ldraw/');
 
-    // Listener for the button click
+    // 7. Event Listener for UI
     window.addEventListener('request-part-render', (e) => {
       const partId = e.detail.partId;
-      console.log("Attempting to load LEGO Part ID:", partId);
-      loadLegoPart(partId, loader);
+      if (loaderOverlay) loaderOverlay.innerText = `Loading Part ${partId}...`;
+      loadLegoPart(partId);
+    });
+
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
     });
 
     animate();
   }
 
-  async function loadLegoPart(partId, loader) {
-    loaderOverlay.style.display = 'block';
-    loaderOverlay.innerText = `Searching for part ${partId}...`;
-
-    // Try 1: Exact Match (e.g. 3001.dat)
-    let fileName = `${partId}.dat`;
-    
-    loader.load(`parts/${fileName}`, 
+  function loadLegoPart(partId) {
+    // Try the exact ID first
+    loaderInstance.load(`parts/${partId}.dat`, 
       (group) => {
-        handleSuccess(group);
+        renderGroup(group);
       },
       undefined,
-      (err) => {
-        // Try 2: If it has letters (like 3001pb01), strip them and try the base brick (3001.dat)
-        const baseId = partId.match(/^\d+/); // Get just the numbers
+      () => {
+        // Fallback: Strip letters and try base model
+        const baseId = partId.match(/^\d+/);
         if (baseId && baseId[0] !== partId) {
-          console.warn(`Part ${partId} not found, trying base model ${baseId[0]}...`);
-          loader.load(`parts/${baseId[0]}.dat`, handleSuccess, undefined, handleFinalError);
+           loaderInstance.load(`parts/${baseId[0]}.dat`, renderGroup, undefined, handleError);
         } else {
-          handleFinalError(err);
+           handleError();
         }
       }
     );
   }
 
-  function handleSuccess(group) {
+  function renderGroup(group) {
     if (currentModel) scene.remove(currentModel);
-    group.rotation.x = Math.PI; // LDraw orientation fix
+    group.rotation.x = Math.PI; 
     
-    // Center the part
     const box = new THREE.Box3().setFromObject(group);
     const center = box.getCenter(new THREE.Vector3());
     group.position.sub(center);
 
     currentModel = group;
     scene.add(currentModel);
-    loaderOverlay.style.display = 'none';
-    controls.reset();
+    
+    const loaderOverlay = document.getElementById('loading-overlay');
+    if (loaderOverlay) loaderOverlay.style.display = 'none';
   }
 
-  function handleFinalError(err) {
-    console.error("LDraw Loader Error:", err);
-    loaderOverlay.innerText = "Error: Part not in LDraw Library";
+  function handleError() {
+    const loaderOverlay = document.getElementById('loading-overlay');
+    if (loaderOverlay) {
+        loaderOverlay.style.display = 'block';
+        loaderOverlay.innerText = "Part not found in 3D Library";
+    }
   }
 
   function animate() {
     requestAnimationFrame(animate);
-    controls.update();
+    if (controls) controls.update();
     renderer.render(scene, camera);
   }
 
+  // Start the engine once the script loads
   init();
 </script>
