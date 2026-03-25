@@ -5,84 +5,84 @@ const { setNum = "75192-1" } = Astro.props;
 let parts = [];
 
 try {
-  // This now fetches the 100 real parts you just seeded!
   parts = await db.select().from(Inventory).where(eq(Inventory.set_num, setNum));
 } catch (e) {
-  console.error("Database fetch failed:", e);
+  console.error("DB Fetch failed:", e);
 }
 ---
 
 <div class="part-browser">
-  <ul id="inventory-list" style="list-style: none; padding: 0; margin: 0;">
-    {parts.length === 0 ? (
-      <li style="padding: 20px; text-align: center; color: #888;">No parts found. Check your database connection.</li>
-    ) : (
-      parts.map((part) => (
-        <li class="part-item">
-          <img src={part.image_url} width="40" height="40" alt={part.name} style="border-radius: 4px; background: #eee;" />
-          <div class="info">
-            <span class="part-name">{part.name}</span>
-            <small class="part-qty">{part.quantity_found} / {part.quantity_needed}</small>
-          </div>
+  <ul id="inventory-list">
+    {parts.map((part) => (
+      <li class="part-item" id={`part-${part.id}`}>
+        <img src={part.image_url} width="40" height="40" loading="lazy" />
+        <div class="info">
+          <span class="name">{part.name}</span>
+          <span class="count" id={`count-${part.id}`}>
+            {part.quantity_found} / {part.quantity_needed}
+          </span>
+        </div>
+        <div class="actions">
           <button class="view-3d-btn" data-part={part.part_num}>3D</button>
           <button class="found-btn" data-db-id={part.id}>Found It!</button>
-        </li>
-      ))
-    )}
+        </div>
+      </li>
+    ))}
   </ul>
 </div>
 
 <style>
   .part-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: #222;
-    padding: 10px;
-    margin-bottom: 8px;
-    border-radius: 6px;
-    border: 1px solid #333;
+    display: flex; align-items: center; gap: 10px; background: #222;
+    padding: 10px; margin-bottom: 8px; border-radius: 8px; border: 1px solid #333;
   }
   .info { flex: 1; display: flex; flex-direction: column; }
-  .part-name { font-size: 0.9rem; color: #fff; font-weight: 500; }
-  .part-qty { color: #aaa; font-size: 0.75rem; }
-  .view-3d-btn {
-    background: #e53935;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    cursor: pointer;
-    font-weight: bold;
+  .name { font-size: 0.85rem; color: #fff; }
+  .count { font-size: 0.75rem; color: #888; }
+  .actions { display: flex; gap: 5px; }
+  button { 
+    cursor: pointer; border: none; border-radius: 4px; padding: 6px 10px; 
+    font-size: 0.7rem; font-weight: bold; 
   }
-  .view-3d-btn:hover { background: #ff5252; }
+  .view-3d-btn { background: #444; color: white; }
+  .found-btn { background: #4caf50; color: white; }
+  .found-btn:hover { background: #66bb6a; }
 </style>
 
 <script>
+  // 1. Handle 3D Rendering
   document.querySelectorAll('.view-3d-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const partId = btn.getAttribute('data-part');
-      // Tell PartViewer3D.astro to render this specific LEGO part
-      window.dispatchEvent(new CustomEvent('request-part-render', { 
-        detail: { partId } 
-      }));
+      window.dispatchEvent(new CustomEvent('request-part-render', { detail: { partId } }));
     });
   });
-  document.querySelectorAll('.found-btn').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const id = btn.getAttribute('data-db-id');
-    
-    const response = await fetch('/api/increment-part', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    });
 
-    if (response.ok) {
-      // Refresh the page to show the updated count
-      window.location.reload();
-    }
+  // 2. Handle "Found It!" Database Update
+  document.querySelectorAll('.found-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const button = e.currentTarget;
+      const id = button.getAttribute('data-db-id');
+      
+      // Visual feedback: Disable button while saving
+      button.disabled = true;
+      button.innerText = "...";
+
+      const response = await fetch('/api/increment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+
+      if (response.ok) {
+        // Refresh the page to show new counts
+        // (In a future version, we can update the UI without refreshing!)
+        window.location.reload();
+      } else {
+        alert("Failed to update database.");
+        button.disabled = false;
+        button.innerText = "Found It!";
+      }
+    });
   });
-});
 </script>
